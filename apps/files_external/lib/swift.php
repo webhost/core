@@ -123,10 +123,9 @@ class Swift extends \OC\Files\Storage\Common {
 			$object = $this->getContainer()->getPartialObject($path);
 			$this->objectCache->set($path, $object);
 			return $object;
-		} catch (Exceptions\ObjFetchError $e) {
+		} catch (ClientErrorResponseException $e) {
 			// this exception happens when the object does not exist, which
 			// is expected in most cases
-			\OCP\Util::writeLog('files_external', $e->getMessage(), \OCP\Util::DEBUG);
 			$this->objectCache->set($path, false);
 			return false;
 		} catch (Exceptions\HttpError $e) {
@@ -221,8 +220,7 @@ class Swift extends \OC\Files\Storage\Common {
 		}
 
 		try {
-			$object = $this->fetchObject($path . '/');
-			$object->delete();
+			$this->getContainer()->dataObject()->setName($path . '/')->delete();
 			$this->objectCache->remove($path . '/');
 		} catch (Exceptions\DeleteError $e) {
 			\OCP\Util::writeLog('files_external', $e->getMessage(), \OCP\Util::ERROR);
@@ -335,10 +333,8 @@ class Swift extends \OC\Files\Storage\Common {
 		}
 
 		try {
-			$object = $this->fetchObject($path);
-			if ($object) {
-				$this->objectCache->remove($path);
-			}
+			$this->getContainer()->dataObject()->setName($path)->delete();
+			$this->objectCache->remove($path);
 		} catch (ClientErrorResponseException $e) {
 			\OCP\Util::writeLog('files_external', $e->getMessage(), \OCP\Util::ERROR);
 			return false;
@@ -356,7 +352,8 @@ class Swift extends \OC\Files\Storage\Common {
 				$tmpFile = \OCP\Files::tmpFile();
 				self::$tmpFiles[$tmpFile] = $path;
 				try {
-					$object = $this->fetchObject($path);
+					// get the real object instead of partial
+					$object = $this->getContainer()->getObject($path);
 					if (!$object) {
 						return false;
 					}
