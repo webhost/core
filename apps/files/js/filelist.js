@@ -83,9 +83,16 @@
 		 * Array of files in the current folder.
 		 * The entries are of file data.
 		 *
-		 * @type Array.<Object>
+		 * @type Array.<OC.Files.FileInfo>
 		 */
 		files: [],
+
+		/**
+		 * Current directory entry
+		 *
+		 * @type OC.Files.FileInfo
+		 */
+		dirInfo: null,
 
 		/**
 		 * File actions handler, defaults to OCA.Files.FileActions
@@ -140,7 +147,7 @@
 		 * When false, clicking on a table header will call reload().
 		 * When true, clicking on a table header will simply resort the list.
 		 */
-		_clientSideSort: false,
+		_clientSideSort: true,
 
 		/**
 		 * Current directory
@@ -417,7 +424,7 @@
 			else {
 				files = _.pluck(this.getSelectedFiles(), 'name');
 			}
-			OC.redirect(this.getDownloadUrl(files, dir));
+			OC.redirect(this.getDownloadUrl(files, dir, true));
 			return false;
 		},
 
@@ -664,7 +671,7 @@
 		},
 		/**
 		 * Creates a new table row element using the given file data.
-		 * @param {OCA.Files.FileInfo} fileData file info attributes
+		 * @param {OC.Files.FileInfo} fileData file info attributes
 		 * @param options map of attributes
 		 * @return new tr element (not appended to the table)
 		 */
@@ -680,7 +687,7 @@
 			options = options || {};
 
 			if (isNaN(mtime)) {
-				mtime = new Date().getTime()
+				mtime = new Date().getTime();
 			}
 
 			if (type === 'dir') {
@@ -727,7 +734,7 @@
 				linkUrl = this.linkTo(path + '/' + name);
 			}
 			else {
-				linkUrl = this.getDownloadUrl(name, path);
+				linkUrl = this.getDownloadUrl(name, path, type === 'dir');
 			}
 			if (this._allowSelection) {
 				td.append(
@@ -828,7 +835,7 @@
 		 * Adds an entry to the files array and also into the DOM
 		 * in a sorted manner.
 		 *
-		 * @param {OCA.Files.FileInfo} fileData map of file attributes
+		 * @param {OC.Files.FileInfo} fileData map of file attributes
 		 * @param {Object} [options] map of attributes
 		 * @param {boolean} [options.updateSummary] true to update the summary
 		 * after adding (default), false otherwise. Defaults to true.
@@ -901,7 +908,7 @@
 		 * Creates a new row element based on the given attributes
 		 * and returns it.
 		 *
-		 * @param {OCA.Files.FileInfo} fileData map of file attributes
+		 * @param {OC.Files.FileInfo} fileData map of file attributes
 		 * @param {Object} [options] map of attributes
 		 * @param {int} [options.index] index at which to insert the element
 		 * @param {boolean} [options.updateSummary] true to update the summary
@@ -1096,14 +1103,7 @@
 			if (this._reloadCall) {
 				this._reloadCall.abort();
 			}
-			this._reloadCall = $.ajax({
-				url: this.getAjaxUrl('list'),
-				data: {
-					dir : this.getCurrentDirectory(),
-					sort: this._sort,
-					sortdirection: this._sortDirection
-				}
-			});
+			this._reloadCall = OC.files.list(this.getCurrentDirectory(), undefined, true);
 			var callBack = this.reloadCallback.bind(this);
 			return this._reloadCall.then(callBack, callBack);
 		},
@@ -1111,6 +1111,8 @@
 			delete this._reloadCall;
 			this.hideMask();
 
+			// TODO: error cases
+			/*
 			if (!result || result.status === 'error') {
 				// if the error is not related to folder we're trying to load, reload the page to handle logout etc
 				if (result.data.error === 'authentication_error' ||
@@ -1148,16 +1150,21 @@
 			if (result.status === 0){
 				return true;
 			}
+			*/
 
 			// TODO: should rather return upload file size through
 			// the files list ajax call
 			this.updateStorageStatistics(true);
 
-			if (result.data.permissions) {
-				this.setDirectoryPermissions(result.data.permissions);
+			// first entry is the root
+			this.dirInfo = result.shift();
+
+			if (this.dirInfo.permissions) {
+				this.setDirectoryPermissions(this.dirInfo.permissions);
 			}
 
-			this.setFiles(result.data.files);
+			result.sort(this._sortComparator);
+			this.setFiles(result);
 			return true;
 		},
 
@@ -1169,8 +1176,8 @@
 			return OCA.Files.Files.getAjaxUrl(action, params);
 		},
 
-		getDownloadUrl: function(files, dir) {
-			return OCA.Files.Files.getDownloadUrl(files, dir || this.getCurrentDirectory());
+		getDownloadUrl: function(files, dir, isDir) {
+			return OCA.Files.Files.getDownloadUrl(files, dir || this.getCurrentDirectory(), isDir);
 		},
 
 		/**
@@ -1245,6 +1252,9 @@
 			});
 		},
 
+		/**
+		 * @deprecated
+		 */
 		setDirectoryPermissions: function(permissions) {
 			var isCreatable = (permissions & OC.PERMISSION_CREATE) !== 0;
 			this.$el.find('#permissions').val(permissions);
@@ -1332,7 +1342,7 @@
 		 * fileData should be inserted, considering the current
 		 * sorting
 		 *
-		 * @param {OCA.Files.FileInfo} fileData file info
+		 * @param {OC.Files.FileInfo} fileData file info
 		 */
 		_findInsertionIndex: function(fileData) {
 			var index = 0;
@@ -1359,15 +1369,18 @@
 				var $thumbEl = $tr.find('.thumbnail');
 				var oldBackgroundImage = $thumbEl.css('background-image');
 				$thumbEl.css('background-image', 'url('+ OC.imagePath('core', 'loading.gif') + ')');
+				if (targetPath.charAt(targetPath.length - 1) !== '/') {
+					// make sure we move the files into the target dir,
+					// not overwrite it
+					targetPath = targetPath + '/';
+				}
 				// TODO: improve performance by sending all file names in a single call
-				$.post(
-					OC.filePath('files', 'ajax', 'move.php'),
-					{
-						dir: dir,
-						file: fileName,
-						target: targetPath
-					},
+				OC.files.move(
+					dir + '/' + fileName,
+					targetPath + '/' + fileName,
 					function(result) {
+						// TODO: result
+						result = {status:'success'};
 						if (result) {
 							if (result.status === 'success') {
 								// if still viewing the same directory
@@ -1478,16 +1491,15 @@
 						td.children('a.name').show();
 						tr.find('.fileactions, .action').addClass('hidden');
 
-						$.ajax({
-							url: OC.filePath('files','ajax','rename.php'),
-							data: {
-								dir : tr.attr('data-path') || self.getCurrentDirectory(),
-								newname: newName,
-								file: oldname
-							},
-							success: function(result) {
+
+						var path = tr.attr('data-path') || self.getCurrentDirectory(); 
+						OC.files.move(
+							path + '/' + oldname,
+							path + '/' + newName,
+							function(status) {
+								// TODO: result
 								var fileInfo;
-								if (!result || result.status === 'error') {
+								if (status !== 201) {
 									OC.dialogs.alert(result.data.message, t('files', 'Could not rename file'));
 									fileInfo = oldFileInfo;
 									if (result.data.code === 'sourcenotfound') {
@@ -1495,16 +1507,14 @@
 										return;
 									}
 								}
-								else {
-									fileInfo = result.data;
-								}
 								// reinsert row
-								self.files.splice(tr.index(), 1);
+								var fileInfo = self.files.splice(tr.index(), 1)[0];
+								fileInfo.name = newName;
 								tr.remove();
 								tr = self.add(fileInfo, {updateSummary: false, silent: true});
 								self.$fileList.trigger($.Event('fileActionsReady', {fileList: self, $files: $(tr)}));
 							}
-						});
+						);
 					} else {
 						// add back the old file info when cancelled
 						self.files.splice(tr.index(), 1);
@@ -1570,36 +1580,26 @@
 				this.lastAction();
 			}
 
-			params = {
-				dir: dir || this.getCurrentDirectory()
-			};
-			if (files) {
-				params.files = JSON.stringify(files);
-			}
-			else {
+			dir = dir || this.getCurrentDirectory();
+			if (!files) {
 				// no files passed, delete all in current dir
-				params.allfiles = true;
-				// show spinner for all files
-				this.$fileList.find('tr>td.date .action.delete').removeClass('icon-delete').addClass('icon-loading-small');
+				files = _.pluck(this.files, 'name');
 			}
 
-			$.post(OC.filePath('files', 'ajax', 'delete.php'),
-					params,
+			_.each(files, function(file) {
+				// TODO: batch/chunk
+				OC.files.remove(
+					dir + '/' + file,
 					function(result) {
+						// TODO: result handling
+						result = {status: 'success'};
 						if (result.status === 'success') {
-							if (params.allfiles) {
-								self.setFiles([]);
-							}
-							else {
-								$.each(files,function(index,file) {
-									var fileEl = self.remove(file, {updateSummary: false});
-									// FIXME: not sure why we need this after the
-									// element isn't even in the DOM any more
-									fileEl.find('.selectCheckBox').prop('checked', false);
-									fileEl.removeClass('selected');
-									self.fileSummary.remove({type: fileEl.attr('data-type'), size: fileEl.attr('data-size')});
-								});
-							}
+							var fileEl = self.remove(file, {updateSummary: false});
+							// FIXME: not sure why we need this after the
+							// element isn't even in the DOM any more
+							fileEl.find('.selectCheckBox').prop('checked', false);
+							fileEl.removeClass('selected');
+							self.fileSummary.remove({type: fileEl.attr('data-type'), size: fileEl.attr('data-size')});
 							// TODO: this info should be returned by the ajax call!
 							self.updateEmptyContent();
 							self.fileSummary.update();
@@ -1629,6 +1629,7 @@
 							}
 						}
 					});
+			});
 		},
 		/**
 		 * Creates the file summary section
@@ -2171,8 +2172,8 @@
 		 * Compares two file infos by name, making directories appear
 		 * first.
 		 *
-		 * @param {OCA.Files.FileInfo} fileInfo1 file info
-		 * @param {OCA.Files.FileInfo} fileInfo2 file info
+		 * @param {OC.Files.FileInfo} fileInfo1 file info
+		 * @param {OC.Files.FileInfo} fileInfo2 file info
 		 * @return {int} -1 if the first file must appear before the second one,
 		 * 0 if they are identify, 1 otherwise.
 		 */
@@ -2188,8 +2189,8 @@
 		/**
 		 * Compares two file infos by size.
 		 *
-		 * @param {OCA.Files.FileInfo} fileInfo1 file info
-		 * @param {OCA.Files.FileInfo} fileInfo2 file info
+		 * @param {OC.Files.FileInfo} fileInfo1 file info
+		 * @param {OC.Files.FileInfo} fileInfo2 file info
 		 * @return {int} -1 if the first file must appear before the second one,
 		 * 0 if they are identify, 1 otherwise.
 		 */
@@ -2199,8 +2200,8 @@
 		/**
 		 * Compares two file infos by timestamp.
 		 *
-		 * @param {OCA.Files.FileInfo} fileInfo1 file info
-		 * @param {OCA.Files.FileInfo} fileInfo2 file info
+		 * @param {OC.Files.FileInfo} fileInfo1 file info
+		 * @param {OC.Files.FileInfo} fileInfo2 file info
 		 * @return {int} -1 if the first file must appear before the second one,
 		 * 0 if they are identify, 1 otherwise.
 		 */
@@ -2212,23 +2213,14 @@
 	/**
 	 * File info attributes.
 	 *
-	 * @todo make this a real class in the future
-	 * @typedef {Object} OCA.Files.FileInfo
+	 * @typedef {Object} OC.Files.FileInfo
 	 *
-	 * @property {int} id file id
-	 * @property {String} name file name
-	 * @property {String} [path] file path, defaults to the list's current path
-	 * @property {String} mimetype mime type
-	 * @property {String} type "file" for files or "dir" for directories
-	 * @property {int} permissions file permissions
-	 * @property {int} mtime modification time in milliseconds
-	 * @property {boolean} [isShareMountPoint] whether the file is a share mount
-	 * point
-	 * @property {boolean} [isPreviewAvailable] whether a preview is available
-	 * for the given file type
-	 * @property {String} [icon] path to the mime type icon
-	 * @property {String} etag etag of the file
+	 * @lends OC.Files.FileInfo
+	 *
+	 * @deprecated use OC.Files.FileInfo instead
+	 *
 	 */
+	OCA.Files.FileInfo = OC.Files.FileInfo;
 
 	OCA.Files.FileList = FileList;
 })();
