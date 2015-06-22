@@ -106,6 +106,15 @@ class Upgrade extends Command {
 				$output->writeln($message);
 				\OC_Config::setValue('maintenance', false);
 			});
+			$updater->listen('\OC\Repair', 'info', function ($message) use($output) {
+				$output->writeln('<info>Repair info: ' . $message . '</info>');
+			});
+			$updater->listen('\OC\Repair', 'step', function ($message) use($output) {
+				$output->writeln('<info>Repair step: ' . $message . '</info>');
+			});
+			$updater->listen('\OC\Updater', 'info', function ($message) use($output) {
+				$output->writeln('<info>Update info: ' . $message . '</info>');
+			});
 
 			$updater->upgrade();
 

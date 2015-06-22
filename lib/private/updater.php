@@ -201,9 +201,11 @@ class Updater extends BasicEmitter {
 		 * STOP CONFIG CHANGES FOR OLDER VERSIONS
 		 */
 
+		$this->emit('\OC\Updater', 'info', array('Before BeforeUpgradeRepair'));
 		// pre-upgrade repairs
 		$repair = new \OC\Repair(\OC\Repair::getBeforeUpgradeRepairSteps());
 		$repair->run();
+		$this->emit('\OC\Updater', 'info', array('After BeforeUpgradeRepair'));
 
 		// simulate DB upgrade
 		if ($this->simulateStepEnabled) {
@@ -222,22 +224,30 @@ class Updater extends BasicEmitter {
 		}
 
 		if ($this->updateStepEnabled) {
+			$this->emit('\OC\Updater', 'info', array('Before doCoreUpgrade'));
 			$this->doCoreUpgrade();
+			$this->emit('\OC\Updater', 'info', array('After doCoreUpgrade'));
 
 			$disabledApps = \OC_App::checkAppsRequirements();
 			if (!empty($disabledApps)) {
 				$this->emit('\OC\Updater', 'disabledApps', array($disabledApps));
 			}
 
+			$this->emit('\OC\Updater', 'info', array('Before doAppUpgrade'));
 			$this->doAppUpgrade();
+			$this->emit('\OC\Updater', 'info', array('After doAppUpgrade'));
 
+			$this->emit('\OC\Updater', 'info', array('Before Repair'));
 			// post-upgrade repairs
 			$repair = new \OC\Repair(\OC\Repair::getRepairSteps());
 			$repair->run();
+			$this->emit('\OC\Updater', 'info', array('After Repair'));
 
+			$this->emit('\OC\Updater', 'info', array('Set lastupdatedat'));
 			//Invalidate update feed
 			\OC_Appconfig::setValue('core', 'lastupdatedat', 0);
 
+			$this->emit('\OC\Updater', 'info', array('Set version'));
 			// only set the final version if everything went well
 			\OC_Config::setValue('version', implode('.', \OC_Util::getVersion()));
 		}
