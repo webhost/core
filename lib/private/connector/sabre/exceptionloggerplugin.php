@@ -8,6 +8,7 @@
  *
  * @license AGPL3
  */
+use Sabre\HTTP\Response;
 
 class OC_Connector_Sabre_ExceptionLoggerPlugin extends \Sabre\DAV\ServerPlugin
 {
@@ -23,12 +24,14 @@ class OC_Connector_Sabre_ExceptionLoggerPlugin extends \Sabre\DAV\ServerPlugin
 	);
 
 	private $appName;
+	private $logger;
 
 	/**
 	 * @param string $loggerAppName app name to use when logging
 	 */
-	public function __construct($loggerAppName = 'webdav') {
+	public function __construct($loggerAppName = 'webdav', \OCP\ILogger $logger) {
 		$this->appName = $loggerAppName;
+		$this->logger = $logger;
 	}
 
 	/**
@@ -52,12 +55,19 @@ class OC_Connector_Sabre_ExceptionLoggerPlugin extends \Sabre\DAV\ServerPlugin
 	 *
 	 * @internal param Exception $e exception
 	 */
-	public function logException($e) {
+	public function logException(\Exception $e) {
 		$exceptionClass = get_class($e);
 		$level = \OCP\Util::FATAL;
 		if (isset($this->nonFatalExceptions[$exceptionClass])) {
 			$level = \OCP\Util::DEBUG;
 		}
-		\OCP\Util::logException($this->appName, $e, $level);
-	}
+
+		$exception = [
+			'Message' =>  $e->getMessage(),
+			'Code' => $e->getCode(),
+			'Trace' => $e->getTraceAsString(),
+			'File' => $ex->getFile(),
+			'Line' => $ex->getLine(),
+		];
+		$this->logger->log($level, 'Exception: ' . json_encode($exception), ['app' => $this->appName]);	}
 }
