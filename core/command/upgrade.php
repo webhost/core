@@ -133,6 +133,16 @@ class Upgrade extends Command {
 				$t = $time->format(\DateTime::ISO8601);
 				$output->writeln('<info>'. $t . ': Update info: ' . $message . '</info>');
 			});
+			$updater->listen('\OC\Updater', 'appUpgradeStarted', function ($appId, $version) use($output) {
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln('<info>'. $t . ': App upgrade of ' . $appId . ':' . $version . '</info>');
+			});
+			$updater->listen('\OC\Updater', 'appUpgrade', function ($appId, $version) use($output) {
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln('<info>'. $t . ': App upgrade finished</info>');
+			});
 
 			$updater->upgrade();
 
