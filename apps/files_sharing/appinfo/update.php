@@ -60,15 +60,18 @@ function updateFilePermissions($chunkSize = 99) {
  * @note parameters are just for testing, please ignore them
  */
 function removeSharedFolder($mkdirs = true, $chunkSize = 99) {
+	$logger = \OC::$server->getLogger();
 	$query = OCP\DB::prepare('SELECT * FROM `*PREFIX*share`');
 	$result = $query->execute();
 	$view = new \OC\Files\View('/');
 	$users = array();
 	$shares = array();
+	$logger->warning('removeSharedFolder init', array('app' => 'files_sharing_update'));
 	//we need to set up user backends
 	OC_User::useBackend(new OC_User_Database());
 	OC_Group::useBackend(new OC_Group_Database());
 	OC_App::loadApps(array('authentication'));
+	$logger->warning('removeSharedFolder apps loaded', array('app' => 'files_sharing_update'));
 	//we need to set up user backends, otherwise creating the shares will fail with "because user does not exist"
 	while ($row = $result->fetchRow()) {
 		//collect all user shares
@@ -83,6 +86,7 @@ function removeSharedFolder($mkdirs = true, $chunkSize = 99) {
 			$shares[$row['id']] = $row['file_target'];
 		}
 	}
+	$logger->warning('removeSharedFolder rows fetched', array('app' => 'files_sharing_update'));
 
 	$unique_users = array_unique($users);
 
@@ -91,9 +95,15 @@ function removeSharedFolder($mkdirs = true, $chunkSize = 99) {
 		// create folder Shared for each user
 
 		if ($mkdirs) {
+			$total = count($unique_users);
+			$i = 1;
 			foreach ($unique_users as $user) {
+				$logger->warning('removeSharedFolder setup ' . $user . ' ('. $i .'/'.$total. ')', array('app' => 'files_sharing_update'));
+				$i++;
 				\OC\Files\Filesystem::initMountPoints($user);
+				$logger->warning('removeSharedFolder mounts finished', array('app' => 'files_sharing_update'));
 				if (!$view->file_exists('/' . $user . '/files/Shared')) {
+					$logger->warning('removeSharedFolder create Shared/', array('app' => 'files_sharing_update'));
 					$view->mkdir('/' . $user . '/files/Shared');
 				}
 			}
