@@ -2,17 +2,17 @@
 
 $installedVersion = OCP\Config::getAppValue('files_sharing', 'installed_version');
 
-if (version_compare($installedVersion, '0.5', '<')) {
-	updateFilePermissions();
+// clean up oc_share table from files which are no longer exists
+if (version_compare($installedVersion, '0.3.5.6', '<')) {
+	\OC\Files\Cache\Shared_Updater::fixBrokenSharesOnAppUpdate();
 }
 
 if (version_compare($installedVersion, '0.4', '<')) {
 	removeSharedFolder();
 }
 
-// clean up oc_share table from files which are no longer exists
-if (version_compare($installedVersion, '0.3.5.6', '<')) {
-	\OC\Files\Cache\Shared_Updater::fixBrokenSharesOnAppUpdate();
+if (version_compare($installedVersion, '0.5', '<')) {
+	updateFilePermissions();
 }
 
 
