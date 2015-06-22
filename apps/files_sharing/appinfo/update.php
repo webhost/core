@@ -4,14 +4,17 @@ $installedVersion = OCP\Config::getAppValue('files_sharing', 'installed_version'
 
 // clean up oc_share table from files which are no longer exists
 if (version_compare($installedVersion, '0.3.5.6', '<')) {
+	\OC::$server->getLogger()->warning('start fixBrokenSharesOnAppUpdate', array('app' => 'files_sharing_update'));
 	\OC\Files\Cache\Shared_Updater::fixBrokenSharesOnAppUpdate();
 }
 
 if (version_compare($installedVersion, '0.4', '<')) {
+	\OC::$server->getLogger()->warning('start removeSharedFolder', array('app' => 'files_sharing_update'));
 	removeSharedFolder();
 }
 
 if (version_compare($installedVersion, '0.5', '<')) {
+	\OC::$server->getLogger()->warning('start updateFilePermissions', array('app' => 'files_sharing_update'));
 	updateFilePermissions();
 }
 
@@ -36,6 +39,7 @@ function updateFilePermissions($chunkSize = 99) {
 	$chunkedPermissionList = array_chunk($updatedRows, $chunkSize, true);
 
 	foreach ($chunkedPermissionList as $subList) {
+		\OC::$server->getLogger()->warning('updateFilePermissions ' . json_encode($subList), array('app' => 'files_sharing_update'));
 		$statement = "UPDATE `*PREFIX*share` SET `permissions` = CASE `id` ";
 		//update share table
 		$ids = implode(',', array_keys($subList));
@@ -99,6 +103,7 @@ function removeSharedFolder($mkdirs = true, $chunkSize = 99) {
 		$connection = \OC_DB::getConnection();
 
 		foreach ($chunkedShareList as $subList) {
+			\OC::$server->getLogger()->warning('removeSharedFolder ' . json_encode($subList), array('app' => 'files_sharing_update'));
 
 			$statement = "UPDATE `*PREFIX*share` SET `file_target` = CASE `id` ";
 			//update share table
