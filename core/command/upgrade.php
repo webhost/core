@@ -81,39 +81,57 @@ class Upgrade extends Command {
 			$updater->setUpdateStepEnabled($updateStepEnabled);
 
 			$updater->listen('\OC\Updater', 'maintenanceStart', function () use($output) {
-				$output->writeln('<info>Turned on maintenance mode</info>');
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln('<info>'. $t . ': Turned on maintenance mode</info>');
 			});
 			$updater->listen('\OC\Updater', 'maintenanceEnd', function () use($output, $updateStepEnabled) {
-				$output->writeln('<info>Turned off maintenance mode</info>');
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln('<info>'. $t . ': Turned off maintenance mode</info>');
 				if (!$updateStepEnabled) {
 					$output->writeln('<info>Update simulation successful</info>');
 				}
 				else {
-					$output->writeln('<info>Update successful</info>');
+					$output->writeln('<info>'. $t . ': Update successful</info>');
 				}
 			});
 			$updater->listen('\OC\Updater', 'dbUpgrade', function () use($output) {
-				$output->writeln('<info>Updated database</info>');
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln('<info>'. $t . ': Updated database</info>');
 			});
 			$updater->listen('\OC\Updater', 'dbSimulateUpgrade', function () use($output) {
-				$output->writeln('<info>Checked database schema update</info>');
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln('<info>'. $t . ': Checked database schema update</info>');
 			});
 			$updater->listen('\OC\Updater', 'disabledApps', function ($appList) use($output) {
-				$output->writeln('<info>Disabled incompatible apps: ' . implode(', ', $appList) . '</info>');
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln('<info>'. $t . ': Disabled incompatible apps: ' . implode(', ', $appList) . '</info>');
 			});
 
 			$updater->listen('\OC\Updater', 'failure', function ($message) use($output) {
-				$output->writeln($message);
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln($t . ': ' . $message);
 				\OC_Config::setValue('maintenance', false);
 			});
 			$updater->listen('\OC\Repair', 'info', function ($message) use($output) {
-				$output->writeln('<info>Repair info: ' . $message . '</info>');
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln('<info>'. $t . ': Repair info: ' . $message . '</info>');
 			});
 			$updater->listen('\OC\Repair', 'step', function ($message) use($output) {
-				$output->writeln('<info>Repair step: ' . $message . '</info>');
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln('<info>'. $t . ': Repair step: ' . $message . '</info>');
 			});
 			$updater->listen('\OC\Updater', 'info', function ($message) use($output) {
-				$output->writeln('<info>Update info: ' . $message . '</info>');
+				$time = new \DateTime();
+				$t = $time->format(\DateTime::ISO8601);
+				$output->writeln('<info>'. $t . ': Update info: ' . $message . '</info>');
 			});
 
 			$updater->upgrade();
