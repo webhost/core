@@ -100,7 +100,12 @@ function removeSharedFolder($mkdirs = true, $chunkSize = 99) {
 			foreach ($unique_users as $user) {
 				$logger->warning('removeSharedFolder setup ' . $user . ' ('. $i .'/'.$total. ')', array('app' => 'files_sharing_update'));
 				$i++;
-				\OC\Files\Filesystem::initMountPoints($user);
+				try {
+					\OC\Files\Filesystem::initMountPoints($user);
+				} catch(\OC\User\NoUserException $e) {
+					$logger->warning("Update: removeSharedFolder - user '$user' is not present anymore" , array('app' => 'files_sharing'));
+					continue;
+				}
 				$logger->warning('removeSharedFolder mounts finished', array('app' => 'files_sharing_update'));
 				if (!$view->file_exists('/' . $user . '/files/Shared')) {
 					$logger->warning('removeSharedFolder create Shared/', array('app' => 'files_sharing_update'));
