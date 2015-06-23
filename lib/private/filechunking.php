@@ -178,19 +178,17 @@ class OC_FileChunking {
 	 * Assembles the chunks into the file specified by the path.
 	 * Also triggers the relevant hooks and proxies.
 	 *
-	 * @param string $path target path
+	 * @param \OC\Files\View $view
+	 * @param string $path
+	 * @return bool assembled file size or false if file could not be created
 	 *
-	 * @return boolean assembled file size or false if file could not be created
+	 * @internal param string $path target path
 	 *
-	 * @throws \OC\InsufficientStorageException when file could not be fully
-	 * assembled due to lack of free space
 	 */
-	public function file_assemble($path) {
-		$absolutePath = \OC\Files\Filesystem::normalizePath(\OC\Files\Filesystem::getView()->getAbsolutePath($path));
+	public function file_assemble(\OC\Files\View $view, $path) {
 		$data = '';
 		// use file_put_contents as method because that best matches what this function does
 		if (\OC\Files\Filesystem::isValidPath($path)) {
-			$path = \OC\Files\Filesystem::getView()->getRelativePath($absolutePath);
 			$exists = \OC\Files\Filesystem::file_exists($path);
 			$run = true;
 			if(!$exists) {
@@ -214,7 +212,10 @@ class OC_FileChunking {
 			if(!$run) {
 				return false;
 			}
-			$target = \OC\Files\Filesystem::fopen($path, 'w');
+
+			/** @var \OC\Files\Storage\Storage $storage */
+			list($storage, $internalPath) = $view->resolvePath($path);
+			$target = $storage->fopen($internalPath, 'w');
 			if($target) {
 				$count = $this->assemble($target);
 				fclose($target);

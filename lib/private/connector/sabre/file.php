@@ -371,36 +371,48 @@ class File extends Node implements IFile {
 
 			try {
 				$targetPath = $path . '/' . $info['name'];
+
+				$this->fileView->lockFile($targetPath, ILockingProvider::LOCK_EXCLUSIVE);
+				/** @var \OC\Files\Storage\Storage $targetStorage */
+				list($targetStorage, $targetInternalPath) = $this->fileView->resolvePath($targetPath);
+
 				if ($needsPartFile) {
 					// we first assembly the target file as a part file
 					$partFile = $path . '/' . $info['name'] . '.ocTransferId' . $info['transferid'] . '.part';
-					$chunk_handler->file_assemble($partFile);
+					/** @var \OC\Files\Storage\Storage $targetStorage */
+					list($partStorage, $partInternalPath) = $this->fileView->resolvePath($partFile);
+					$chunk_handler->file_assemble($this->fileView, $partFile);
 
 					// here is the final atomic rename
-					$renameOkay = $this->fileView->rename($partFile, $targetPath);
-					$fileExists = $this->fileView->file_exists($targetPath);
+					$renameOkay = $targetStorage->moveFromStorage($partStorage, $partInternalPath, $targetInternalPath);
+					$fileExists = $targetStorage->file_exists($targetInternalPath);
 					if ($renameOkay === false || $fileExists === false) {
 						\OC_Log::write('webdav', '\OC\Files\Filesystem::rename() failed', \OC_Log::ERROR);
 						// only delete if an error occurred and the target file was already created
 						if ($fileExists) {
-							$this->fileView->unlink($targetPath);
+							$targetStorage->unlink($targetInternalPath);
 						}
 						throw new Exception('Could not rename part file assembled from chunks');
 					}
 				} else {
 					// assemble directly into the final file
-					$chunk_handler->file_assemble($targetPath);
+					$chunk_handler->file_assemble($this->fileView, $targetPath);
 				}
 
 				// allow sync clients to send the mtime along in a header
 				$request = \OC::$server->getRequest();
 				if (isset($request->server['HTTP_X_OC_MTIME'])) {
-					if ($this->fileView->touch($targetPath, $request->server['HTTP_X_OC_MTIME'])) {
+					if ($targetStorage->touch($targetInternalPath, $request->server['HTTP_X_OC_MTIME'])) {
 						header('X-OC-MTime: accepted');
 					}
 				}
 
+				$this->fileView->changeLock($targetPath, ILockingProvider::LOCK_SHARED);
+
 				$info = $this->fileView->getFileInfo($targetPath);
+
+				$this->fileView->unlockFile($targetPath, ILockingProvider::LOCK_SHARED);
+
 				return $info->getEtag();
 			} catch (StorageNotAvailableException $e) {
 				throw new ServiceUnavailable("Failed to put file: " . $e->getMessage());
