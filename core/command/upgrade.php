@@ -21,6 +21,7 @@ class Upgrade extends Command {
 	const ERROR_MAINTENANCE_MODE = 2;
 	const ERROR_UP_TO_DATE = 3;
 	const ERROR_INVALID_ARGUMENTS = 4;
+	const ERROR_FAILURE = 5;
 
 	protected function configure() {
 		$this
@@ -85,10 +86,13 @@ class Upgrade extends Command {
 				$t = $time->format(\DateTime::ISO8601);
 				$output->writeln('<info>'. $t . ': Turned on maintenance mode</info>');
 			});
-			$updater->listen('\OC\Updater', 'maintenanceEnd', function () use($output, $updateStepEnabled) {
+			$updater->listen('\OC\Updater', 'maintenanceEnd', function ($success) use($output, $updateStepEnabled) {
 				$time = new \DateTime();
 				$t = $time->format(\DateTime::ISO8601);
 				$output->writeln('<info>'. $t . ': Turned off maintenance mode</info>');
+				if(!$success) {
+					return;
+				}
 				if (!$updateStepEnabled) {
 					$output->writeln('<info>Update simulation successful</info>');
 				}
@@ -115,7 +119,8 @@ class Upgrade extends Command {
 			$updater->listen('\OC\Updater', 'failure', function ($message) use($output) {
 				$time = new \DateTime();
 				$t = $time->format(\DateTime::ISO8601);
-				$output->writeln($t . ': ' . $message);
+				$output->writeln('<error>' . $t . ': ' . $message . '</error>');
+				$output->writeln('<error>Upgrade failed</error>');
 				\OC_Config::setValue('maintenance', false);
 			});
 			$updater->listen('\OC\Repair', 'info', function ($message) use($output) {
@@ -144,7 +149,11 @@ class Upgrade extends Command {
 				$output->writeln('<info>'. $t . ': App upgrade finished</info>');
 			});
 
-			$updater->upgrade();
+			$result = $updater->upgrade();
+
+			if($result === false) {
+				return self::ERROR_FAILURE;
+			}
 
 			$this->postUpgradeCheck($input, $output);
 
