@@ -56,10 +56,10 @@ class Controller {
 		\OC_JSON::callCheck();
 		\OC_JSON::checkLoggedIn();
 
+		$l = new \OC_L10n('settings');
 		if (isset($_POST['username'])) {
 			$username = $_POST['username'];
 		} else {
-			$l = new \OC_L10n('settings');
 			\OC_JSON::error(array('data' => array('message' => $l->t('No user supplied')) ));
 			exit();
 		}
