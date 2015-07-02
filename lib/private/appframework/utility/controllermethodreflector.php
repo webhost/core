@@ -62,13 +62,10 @@ class ControllerMethodReflector implements IControllerMethodReflector{
 		preg_match_all('/@param\h+(?P<type>\w+)\h+\$(?P<var>\w+)/', $docs, $matches);
 		$this->types = array_combine($matches['var'], $matches['type']);
 
-		// get method parameters
-		$supportsScalarTypes = class_exists('ReflectionType');
-
 		foreach ($reflection->getParameters() as $param) {
 			// extract type information from PHP 7 scalar types and prefer them
 			// over phpdoc annotations
-			if ($supportsScalarTypes) {
+			if (method_exists($param, 'getType')) {
 				$type = $param->getType();
 				if ($type !== null) {
 					$this->types[$param->getName()] = (string) $type;
