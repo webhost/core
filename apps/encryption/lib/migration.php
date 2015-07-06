@@ -23,16 +23,16 @@
 namespace OCA\Encryption;
 
 
-use OC\DB\Connection;
 use OC\Files\View;
 use OCP\IConfig;
+use OCP\IDBConnection;
 
 class Migration {
 
 	private $moduleId;
 	/** @var \OC\Files\View */
 	private $view;
-	/** @var \OC\DB\Connection */
+	/** @var \OCP\IDBConnection */
 	private $connection;
 	/** @var IConfig */
 	private $config;
@@ -40,9 +40,9 @@ class Migration {
 	/**
 	 * @param IConfig $config
 	 * @param View $view
-	 * @param Connection $connection
+	 * @param IDBConnection $connection
 	 */
-	public function __construct(IConfig $config, View $view, Connection $connection) {
+	public function __construct(IConfig $config, View $view, IDBConnection $connection) {
 		$this->view = $view;
 		$this->view->getUpdater()->disable();
 		$this->connection = $connection;
@@ -60,7 +60,7 @@ class Migration {
 	 * update file cache, copy unencrypted_size to the 'size' column
 	 */
 	private function updateFileCache() {
-		$query = $this->connection->createQueryBuilder();
+		$query = $this->connection->getQueryBuilder();
 		$query->update('`*PREFIX*filecache`')
 			->set('`size`', '`unencrypted_size`')
 			->where($query->expr()->eq('`encrypted`', ':encrypted'))
@@ -144,7 +144,7 @@ class Migration {
 		$this->config->deleteAppValue('files_encryption', 'enabled');
 
 
-		$query = $this->connection->createQueryBuilder();
+		$query = $this->connection->getQueryBuilder();
 		$query->update('`*PREFIX*appconfig`')
 			->set('`appid`', ':newappid')
 			->where($query->expr()->eq('`appid`', ':oldappid'))
@@ -152,7 +152,7 @@ class Migration {
 			->setParameter('newappid', 'encryption');
 		$query->execute();
 
-		$query = $this->connection->createQueryBuilder();
+		$query = $this->connection->getQueryBuilder();
 		$query->update('`*PREFIX*preferences`')
 			->set('`appid`', ':newappid')
 			->where($query->expr()->eq('`appid`', ':oldappid'))
