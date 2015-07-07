@@ -1250,4 +1250,41 @@ class OC_App {
 
 		return $data;
 	}
+
+	/**
+	 * Returns a list of apps that need upgrade
+	 *
+	 * @return array list of app info from apps that need an upgrade
+	 */
+	public static function getAppsNeedingUpgrade() {
+		$appsToUpgrade = [];
+		$apps = self::getEnabledApps(false, true);
+		foreach ($apps as $appId) {
+			if (self::shouldUpgrade($appId)) {
+				$appsToUpgrade[] = self::getAppInfo($appId);
+			}
+		}
+
+		return $appsToUpgrade;
+	}
+
+	/**
+	 * Returns a list of apps incompatible with the given version
+	 *
+	 * @param array $version version as array of version components
+	 *
+	 * @return array list of app info from incompatible apps
+	 */
+	public static function getIncompatibleApps($version) {
+		$apps = self::getEnabledApps();
+		$incompatibleApps = array();
+		foreach ($apps as $appId) {
+			$info = self::getAppInfo($appId);
+			if (!self::isAppCompatible($version, $info)) {
+				$incompatibleApps[] = $info;
+			}
+		}
+		return $incompatibleApps;
+	}
+
 }
