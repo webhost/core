@@ -71,7 +71,8 @@
 					folderDropOptions: folderDropOptions,
 					fileActions: fileActions,
 					allowLegacyActions: true,
-					scrollTo: urlParams.scrollto
+					scrollTo: urlParams.scrollto,
+					filesClient: OC.files
 				}
 			);
 			this.files.initialize();

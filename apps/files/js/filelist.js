@@ -65,6 +65,13 @@
 		fileSummary: null,
 
 		/**
+		 * Files client instance
+		 *
+		 * @type OC.Files.Client
+		 */
+		filesClient: null,
+
+		/**
 		 * Whether the file list was initialized already.
 		 * @type boolean
 		 */
@@ -168,6 +175,7 @@
 		 * @param options.dragOptions drag options, disabled by default
 		 * @param options.folderDropOptions folder drop options, disabled by default
 		 * @param options.scrollTo name of file to scroll to after the first load
+		 * @param {OC.Files.Client} options.filesClient files API client
 		 * @private
 		 */
 		initialize: function($el, options) {
@@ -182,6 +190,9 @@
 			}
 			if (options.folderDropOptions) {
 				this._folderDropOptions = options.folderDropOptions;
+			}
+			if (options.filesClient) {
+				this.filesClient = options.filesClient;
 			}
 
 			this.$el = $el;
@@ -1103,7 +1114,7 @@
 			if (this._reloadCall) {
 				this._reloadCall.abort();
 			}
-			this._reloadCall = OC.files.list(this.getCurrentDirectory(), undefined, true);
+			this._reloadCall = this.filesClient.list(this.getCurrentDirectory(), undefined, true);
 			var callBack = this.reloadCallback.bind(this);
 			return this._reloadCall.then(callBack, callBack);
 		},
@@ -1172,6 +1183,9 @@
 			OCA.Files.Files.updateStorageStatistics(this.getCurrentDirectory(), force);
 		},
 
+		/**
+		 * @deprecated do not use nor override
+		 */
 		getAjaxUrl: function(action, params) {
 			return OCA.Files.Files.getAjaxUrl(action, params);
 		},
@@ -1375,11 +1389,9 @@
 					targetPath = targetPath + '/';
 				}
 				// TODO: improve performance by sending all file names in a single call
-				OC.files.move(
-					dir + '/' + fileName,
-					targetPath + '/' + fileName,
-					function(result) {
-						// TODO: result
+				self.filesClient.move(dir + '/' + fileName, targetPath + '/' + fileName)
+					.then(function(result) {
+						// TODO: result + error handling
 						result = {status:'success'};
 						if (result) {
 							if (result.status === 'success') {
@@ -1414,8 +1426,7 @@
 							OC.dialogs.alert(t('files', 'Error moving file'), t('files', 'Error'));
 						}
 						$thumbEl.css('background-image', oldBackgroundImage);
-					}
-				);
+					});
 			});
 
 		},
@@ -1493,10 +1504,8 @@
 
 
 						var path = tr.attr('data-path') || self.getCurrentDirectory(); 
-						OC.files.move(
-							path + '/' + oldname,
-							path + '/' + newName,
-							function(status) {
+						self.filesClient.move(path + '/' + oldname, path + '/' + newName)
+							.then(function(status) {
 								// TODO: result
 								var fileInfo;
 								if (status !== 201) {
@@ -1513,8 +1522,7 @@
 								tr.remove();
 								tr = self.add(fileInfo, {updateSummary: false, silent: true});
 								self.$fileList.trigger($.Event('fileActionsReady', {fileList: self, $files: $(tr)}));
-							}
-						);
+							});
 					} else {
 						// add back the old file info when cancelled
 						self.files.splice(tr.index(), 1);
@@ -1588,9 +1596,8 @@
 
 			_.each(files, function(file) {
 				// TODO: batch/chunk
-				OC.files.remove(
-					dir + '/' + file,
-					function(result) {
+				self.filesClient.remove(dir + '/' + file)
+					.then(function(result) {
 						// TODO: result handling
 						result = {status: 'success'};
 						if (result.status === 'success') {
