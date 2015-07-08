@@ -656,7 +656,7 @@ OC.Upload = {
 					switch(type) {
 						case 'file':
 							// TODO: error handling
-							filesClient.putFileContents(targetPath, null, '')
+							filesClient.putFileContents(targetPath, '')
 								.then(function() {
 									filesClient.getFileInfo(targetPath).then(function(data) {
 										FileList.add(data, {animate: true, scrollTo: true});

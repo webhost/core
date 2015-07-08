@@ -1114,7 +1114,7 @@
 			if (this._reloadCall) {
 				this._reloadCall.abort();
 			}
-			this._reloadCall = this.filesClient.list(this.getCurrentDirectory(), undefined, true);
+			this._reloadCall = this.filesClient.list(this.getCurrentDirectory(), {includeParent: true});
 			var callBack = this.reloadCallback.bind(this);
 			return this._reloadCall.then(callBack, callBack);
 		},

@@ -238,30 +238,26 @@
 		 * Lists the contents of a directory
 		 *
 		 * @param {String} path path to retrieve
-		 * @param {Function} callback callback that receives an array
-		 * of files as parameter
-		 * @param {boolean} [includeParent=false] set to true to keep
+		 * @param {Object} [options] options
+		 * @param {boolean} [options.includeParent=false] set to true to keep
 		 * the parent folder in the result list
 		 *
 		 * @return {Promise} promise 
 		 */
-		list: function(path, callback, includeParent) {
+		list: function(path, options) {
 			if (!path) {
 				path = '';
 			}
 			var self = this;
 			var deferred = $.Deferred();
 			var promise = deferred.promise();
-			if (callback) {
-				promise.then(callback);
-			}
 
 			this.client.propfind(
 				this._buildPath(this._root, path),
 				function(status, body) {
 					// TODO: handle error cases like 404
 					var results = self._parseResult(body);
-					if (!includeParent) {
+					if (!options || !options.includeParent) {
 						// remove root dir, the first entry
 						results.shift();
 					}
@@ -277,22 +273,18 @@
 		 * Returns the file info of a given path.
 		 *
 		 * @param {String} path path 
-		 * @param {Function} callback callback that receives
 		 * @param {Array} [properties] list of webdav properties to
 		 * retrieve
 		 *
 		 * @return {Promise} promise
 		 */
-		getFileInfo: function(path, callback) {
+		getFileInfo: function(path) {
 			if (!path) {
 				path = '';
 			}
 			var self = this;
 			var deferred = $.Deferred();
 			var promise = deferred.promise();
-			if (callback) {
-				promise.then(callback);
-			}
 
 			this.client.propfind(
 				this._buildPath(this._root, path),
@@ -310,20 +302,16 @@
 		 * Returns the contents of the given file.
 		 *
 		 * @param {String} path path to file
-		 * @param {Function} callback callback that receives the file content
 		 *
 		 * @return {Promise}
 		 */
-		getFileContents: function(path, callback) {
+		getFileContents: function(path) {
 			if (!path) {
 				throw 'Missing argument "path"';
 			}
 			var self = this;
 			var deferred = $.Deferred();
 			var promise = deferred.promise();
-			if (callback) {
-				promise.then(callback);
-			}
 
 			this.client.get(
 				this._buildPath(this._root, path),
@@ -339,19 +327,15 @@
 		 * Puts the given data into the given file.
 		 *
 		 * @param {String} path path to file
-		 * @param {Function} callback callback that receives the file content
 		 *
 		 * @return {Promise}
 		 */
-		putFileContents: function(path, callback, body) {
+		putFileContents: function(path, body) {
 			if (!path) {
 				throw 'Missing argument "path"';
 			}
 			var deferred = $.Deferred();
 			var promise = deferred.promise();
-			if (callback) {
-				promise.then(callback);
-			}
 
 			this.client.put(
 				this._buildPath(this._root, path),
@@ -364,7 +348,7 @@
 			return promise;
 		},
 		
-		_simpleCall: function(method, path, callback) {
+		_simpleCall: function(method, path) {
 			if (!path) {
 				throw 'Missing argument "path"';
 			}
@@ -372,9 +356,6 @@
 			var self = this;
 			var deferred = $.Deferred();
 			var promise = deferred.promise();
-			if (callback) {
-				promise.then(callback);
-			}
 
 			this.client[method](
 				this._buildPath(this._root, path),
@@ -395,24 +376,22 @@
 		 * Creates a directory
 		 *
 		 * @param {String} path path to create
-		 * @param {Function} callback callback that receives the file content
 		 *
 		 * @return {Promise}
 		 */
-		createDirectory: function(path, callback) {
-			return this._simpleCall('mkcol', path, callback);
+		createDirectory: function(path) {
+			return this._simpleCall('mkcol', path);
 		},
 
 		/**
 		 * Deletes a file or directory
 		 *
 		 * @param {String} path path to delete
-		 * @param {Function} callback callback that receives the file content
 		 *
 		 * @return {Promise}
 		 */
-		remove: function(path, callback) {
-			return this._simpleCall('remove', path, callback);
+		remove: function(path) {
+			return this._simpleCall('remove', path);
 		},
 
 		/**
@@ -420,14 +399,12 @@
 		 *
 		 * @param {String} path path to move
 		 * @param {String} destinationPath destination path
-		 * @param {Function} callback callback that receives an array
-		 * of files as parameter
 		 * @param {boolean} [allowOverwrite=false] true to allow overwriting,
 		 * false otherwise
 		 *
 		 * @return {Promise} promise 
 		 */
-		move: function(path, destinationPath, callback, allowOverwrite) {
+		move: function(path, destinationPath, allowOverwrite) {
 			if (!path) {
 				throw 'Missing argument "path"';
 			}
@@ -436,9 +413,6 @@
 			}
 			var deferred = $.Deferred();
 			var promise = deferred.promise();
-			if (callback) {
-				promise.then(callback);
-			}
 
 			this.client.move(
 				this._buildPath(this._root, path),
