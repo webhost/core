@@ -34,14 +34,39 @@
 	Client.NS_OWNCLOUD = 'http://owncloud.org/ns';
 	Client.NS_DAV = 'DAV:';
 	Client._PROPFIND_PROPERTIES = [
+		/**
+		 * Modified time
+		 */
 		[Client.NS_DAV, 'getlastmodified'],
+		/**
+		 * Etag
+		 */
 		[Client.NS_DAV, 'getetag'],
+		/**
+		 * Mime type
+		 */
 		[Client.NS_DAV, 'getcontenttype'],
+		/**
+		 * Resource type "collection" for folders, empty otherwise
+		 */
 		[Client.NS_DAV, 'resourcetype'],
+		/**
+		 * Compound file id, contains fileid + server instance id
+		 */
 		[Client.NS_OWNCLOUD, 'id'],
+		/**
+		 * Letter-coded permissions
+		 */
 		[Client.NS_OWNCLOUD, 'permissions'],
 		//[Client.NS_OWNCLOUD, 'downloadURL'],
-		[Client.NS_OWNCLOUD, 'size']
+		/**
+		 * Folder sizes
+		 */
+		[Client.NS_OWNCLOUD, 'size'],
+		/**
+		 * File sizes
+		 */
+		[Client.NS_DAV, 'getcontentlength']
 	];
 
 	/**
@@ -146,9 +171,18 @@
 				path: decodeURIComponent(path),
 				mtime: response.getProperty(Client.NS_DAV, 'getlastmodified').getParsedValue(),
 				etag: response.getProperty(Client.NS_DAV, 'getetag').getParsedValue(),
-				size: response.getProperty(Client.NS_OWNCLOUD, 'size').getParsedValue(),
 				_props: response
 			};
+
+			var sizeProp = response.getProperty(Client.NS_DAV, 'getcontentlength');
+			if (sizeProp && sizeProp.status === 200) {
+				data.size = parseInt(sizeProp.getParsedValue(), 10);
+			}
+
+			sizeProp = response.getProperty(Client.NS_OWNCLOUD, 'size');
+			if (sizeProp && sizeProp.status === 200) {
+				data.size = parseInt(sizeProp.getParsedValue(), 10);
+			}
 			
 			var contentType = response.getProperty(Client.NS_DAV, 'getcontenttype');
 			if (contentType && contentType.status === 200) {
