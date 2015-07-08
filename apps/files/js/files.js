@@ -341,8 +341,10 @@ scanFiles.scanning=false;
 
 // TODO: move to FileList
 var createDragShadow = function(event) {
+	// FIXME: inject file list instance somehow
+	/* global FileList, Files */
+
 	//select dragged file
-	var FileList = OCA.Files.App.fileList;
 	var isDragSelected = $(event.target).parents('tr').find('td input:first').prop('checked');
 	if (!isDragSelected) {
 		//select dragged file
@@ -379,7 +381,7 @@ var createDragShadow = function(event) {
 				.css('background-image', 'url(' + OC.imagePath('core', 'filetypes/folder.png') + ')');
 		} else {
 			var path = dir + '/' + elem.name;
-			OCA.Files.App.files.lazyLoadPreview(path, elem.mime, function(previewpath) {
+			Files.lazyLoadPreview(path, elem.mime, function(previewpath) {
 				newtr.find('td.filename')
 					.css('background-image', 'url(' + previewpath + ')');
 			}, null, null, elem.etag);
@@ -431,7 +433,7 @@ var folderDropOptions = {
 	hoverClass: "canDrop",
 	drop: function( event, ui ) {
 		// don't allow moving a file into a selected folder
-		var FileList = OCA.Files.App.fileList;
+		/* global FileList */
 		if ($(event.target).parents('tr').find('td input:first').prop('checked') === true) {
 			return false;
 		}

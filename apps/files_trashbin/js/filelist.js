@@ -341,14 +341,6 @@
 				return true;
 			}
 
-			// TODO: should rather return upload file size through
-			// the files list ajax call
-			this.updateStorageStatistics(true);
-
-			if (result.data.permissions) {
-				this.setDirectoryPermissions(result.data.permissions);
-			}
-
 			this.setFiles(result.data.files);
 			return true;
 		},

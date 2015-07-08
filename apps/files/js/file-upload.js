@@ -646,6 +646,7 @@ OC.Upload = {
 				event.preventDefault();
 				try {
 					checkInput();
+					var filesClient = FileList.filesClient;
 					var newname = input.val();
 					if (FileList.lastAction) {
 						FileList.lastAction();
@@ -655,18 +656,18 @@ OC.Upload = {
 					switch(type) {
 						case 'file':
 							// TODO: error handling
-							OC.files.putFileContents(targetPath, null, '')
+							filesClient.putFileContents(targetPath, null, '')
 								.then(function() {
-									OC.files.getFileInfo(targetPath).then(function(data) {
+									filesClient.getFileInfo(targetPath).then(function(data) {
 										FileList.add(data, {animate: true, scrollTo: true});
 									});
 								});
 							break;
 						case 'folder':
 							// TODO: error handling
-							OC.files.createDirectory(targetPath)
+							filesClient.createDirectory(targetPath)
 								.then(function() {
-									OC.files.getFileInfo(targetPath).then(function(data) {
+									filesClient.getFileInfo(targetPath).then(function(data) {
 										FileList.add(data, {animate: true, scrollTo: true});
 									});
 								});

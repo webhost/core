@@ -48,8 +48,20 @@ OCA.Sharing.PublicApp = {
 		this._initialized = true;
 		this.initialDir = $('#dir').val();
 
+		var token = $('#sharingToken').val();
+
 		// file list mode ?
 		if ($el.find('#filestable').length) {
+			var filesClient = new OC.Files.Client({
+				host: location.host,
+				port: location.port,
+				username: token,
+				// note: password not be required, the endpoint
+				// will recognize previous validation from the session
+				root: OC.webroot + '/public.php/webdav',
+				useHTTPS: location.protocol === 'https:'
+			});
+
 			this.fileList = new OCA.Files.FileList(
 				$el,
 				{
@@ -57,7 +69,8 @@ OCA.Sharing.PublicApp = {
 					scrollContainer: $(window),
 					dragOptions: dragOptions,
 					folderDropOptions: folderDropOptions,
-					fileActions: fileActions
+					fileActions: fileActions,
+					filesClient: filesClient
 				}
 			);
 			this.files = OCA.Files.Files;
@@ -87,7 +100,6 @@ OCA.Sharing.PublicApp = {
 
 
 		// dynamically load image previews
-		var token = $('#sharingToken').val();
 		var bottomMargin = 350;
 		var previewWidth = Math.floor($(window).width() * window.devicePixelRatio);
 		var previewHeight = Math.floor(($(window).height() - bottomMargin) * window.devicePixelRatio);
@@ -145,12 +157,6 @@ OCA.Sharing.PublicApp = {
 					files: filename
 				};
 				return OC.generateUrl('/s/' + token + '/download') + '?' + OC.buildQueryString(params);
-			};
-
-			this.fileList.getAjaxUrl = function (action, params) {
-				params = params || {};
-				params.t = token;
-				return OC.filePath('files_sharing', 'ajax', action + '.php') + '?' + OC.buildQueryString(params);
 			};
 
 			this.fileList.linkTo = function (dir) {
