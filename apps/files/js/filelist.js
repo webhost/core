@@ -175,7 +175,7 @@
 		 * @param options.dragOptions drag options, disabled by default
 		 * @param options.folderDropOptions folder drop options, disabled by default
 		 * @param options.scrollTo name of file to scroll to after the first load
-		 * @param {OC.Files.Client} options.filesClient files API client
+		 * @param {OC.Files.Client} [options.filesClient] files API client
 		 * @private
 		 */
 		initialize: function($el, options) {
@@ -193,6 +193,9 @@
 			}
 			if (options.filesClient) {
 				this.filesClient = options.filesClient;
+			} else {
+				// default client if not specified
+				this.filesClient = OC.files;
 			}
 
 			this.$el = $el;
