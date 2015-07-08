@@ -831,6 +831,12 @@ OC.Share={
 			minDate: minDate,
 			maxDate: null
 		};
+		if (_.isString(shareTime)) {
+			shareTime = parseInt(shareTime);
+			if(isNaN(shareTime)) {
+				shareTime = null;
+			}
+		}
 		if (_.isNumber(shareTime)) {
 			shareTime = new Date(shareTime * 1000);
 		}
