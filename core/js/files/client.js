@@ -252,8 +252,11 @@
 			_.each(names, function(name) {
 				result.push(self._parseFileInfo(response.getResponse(name)));
 			});
-			console.log(result);
 			return result;
+		},
+
+		_isSuccessStatus: function(status) {
+			return status >= 200 && status <= 299;
 		},
 
 		_getPropfindProperties: function() {
@@ -278,7 +281,7 @@
 		 *
 		 * @return {Promise} promise 
 		 */
-		list: function(path, options) {
+		getFolderContents: function(path, options) {
 			if (!path) {
 				path = '';
 			}
@@ -289,13 +292,16 @@
 			this.client.propfind(
 				this._buildPath(this._root, path),
 				function(status, body) {
-					// TODO: handle error cases like 404
-					var results = self._parseResult(body);
-					if (!options || !options.includeParent) {
-						// remove root dir, the first entry
-						results.shift();
+					if (self._isSuccessStatus(status)) {
+						var results = self._parseResult(body);
+						if (!options || !options.includeParent) {
+							// remove root dir, the first entry
+							results.shift();
+						}
+						deferred.resolve(status, results);
+					} else {
+						deferred.reject(status);
 					}
-					deferred.resolve(results);
 				},
 				1,
 				this._getPropfindProperties()
@@ -323,8 +329,11 @@
 			this.client.propfind(
 				this._buildPath(this._root, path),
 				function(status, body) {
-					// TODO: handle error cases like 404
-					deferred.resolve(self._parseResult(body)[0]);
+					if (self._isSuccessStatus(status)) {
+						deferred.resolve(status, self._parseResult(body)[0]);
+					} else {
+						deferred.reject(status);
+					}
 				},
 				0,
 				this._getPropfindProperties()
@@ -350,8 +359,11 @@
 			this.client.get(
 				this._buildPath(this._root, path),
 				function(status, body) {
-					// TODO: handle error cases like 404
-					deferred.resolve(self._parseResult(body)[0]);
+					if (self._isSuccessStatus(status)) {
+						deferred.resolve(status, self._parseResult(body)[0]);
+					} else {
+						deferred.reject(status);
+					}
 				}
 			);
 			return promise;
@@ -368,14 +380,18 @@
 			if (!path) {
 				throw 'Missing argument "path"';
 			}
+			var self = this;
 			var deferred = $.Deferred();
 			var promise = deferred.promise();
 
 			this.client.put(
 				this._buildPath(this._root, path),
-				function(status, body) {
-					// TODO: handle error cases like 404
-					deferred.resolve();
+				function(status) {
+					if (self._isSuccessStatus(status)) {
+						deferred.resolve(status);
+					} else {
+						deferred.reject(status);
+					}
 				},
 				body || ''
 			);
@@ -394,13 +410,18 @@
 			this.client[method](
 				this._buildPath(this._root, path),
 				function(status, body, responseHeadersString) {
-					// TODO: handle error cases like 404
-					var headers = self._parseHeaders(responseHeadersString);
-					var data = {};
-					if (headers['OC-FileId']) {
-						data.id = self._parseFileId(headers['OC-FileId'][0]);
+					if (self._isSuccessStatus(status)) {
+						// TODO: handle error cases like 404
+						var headers = self._parseHeaders(responseHeadersString);
+						var data = {};
+						if (headers['OC-FileId']) {
+							data.id = self._parseFileId(headers['OC-FileId'][0]);
+						}
+
+						deferred.resolve(status, data);
+					} else {
+						deferred.reject(status);
 					}
-					deferred.resolve(data);
 				}
 			);
 			return promise;
@@ -445,13 +466,19 @@
 			if (!destinationPath) {
 				throw 'Missing argument "destinationPath"';
 			}
+
+			var self = this;
 			var deferred = $.Deferred();
 			var promise = deferred.promise();
 
 			this.client.move(
 				this._buildPath(this._root, path),
 				function(status) {
-					deferred.resolve(status);
+					if (self._isSuccessStatus(status)) {
+						deferred.resolve(status);
+					} else {
+						deferred.reject(status);
+					}
 				},
 				this._buildPath(this._root, destinationPath),
 				allowOverwrite ? nl.sara.webdav.Client.SILENT_OVERWRITE : nl.sara.webdav.Client.FAIL_ON_OVERWRITE

@@ -1117,11 +1117,11 @@
 			if (this._reloadCall) {
 				this._reloadCall.abort();
 			}
-			this._reloadCall = this.filesClient.list(this.getCurrentDirectory(), {includeParent: true});
+			this._reloadCall = this.filesClient.getFolderContents(this.getCurrentDirectory(), {includeParent: true});
 			var callBack = this.reloadCallback.bind(this);
 			return this._reloadCall.then(callBack, callBack);
 		},
-		reloadCallback: function(result) {
+		reloadCallback: function(status, result) {
 			delete this._reloadCall;
 			this.hideMask();
 
@@ -1138,9 +1138,10 @@
 				OC.Notification.show(result.data.message);
 				return false;
 			}
+			*/
 
 			// Firewall Blocked request?
-			if (result.status === 403) {
+			if (status === 403) {
 				// Go home
 				this.changeDirectory('/');
 				OC.Notification.show(t('files', 'This operation is forbidden'));
@@ -1148,26 +1149,24 @@
 			}
 
 			// Did share service die or something else fail?
-			if (result.status === 500) {
+			if (status === 500) {
 				// Go home
 				this.changeDirectory('/');
 				OC.Notification.show(t('files', 'This directory is unavailable, please check the logs or contact the administrator'));
 				return false;
 			}
 
-			if (result.status === 404) {
+			if (status === 404) {
 				// go back home
 				this.changeDirectory('/');
 				return false;
 			}
 			// aborted ?
-			if (result.status === 0){
+			if (status === 0){
 				return true;
 			}
-			*/
 
-			// TODO: should rather return upload file size through
-			// the files list ajax call
+			// TODO: parse remaining quota from PROPFIND response
 			this.updateStorageStatistics(true);
 
 			// first entry is the root
@@ -1391,43 +1390,35 @@
 					// not overwrite it
 					targetPath = targetPath + '/';
 				}
-				// TODO: improve performance by sending all file names in a single call
 				self.filesClient.move(dir + '/' + fileName, targetPath + '/' + fileName)
-					.then(function(result) {
-						// TODO: result + error handling
-						result = {status:'success'};
-						if (result) {
-							if (result.status === 'success') {
-								// if still viewing the same directory
-								if (self.getCurrentDirectory() === dir) {
-									// recalculate folder size
-									var oldFile = self.findFileEl(target);
-									var newFile = self.findFileEl(fileName);
-									var oldSize = oldFile.data('size');
-									var newSize = oldSize + newFile.data('size');
-									oldFile.data('size', newSize);
-									oldFile.find('td.filesize').text(OC.Util.humanFileSize(newSize));
+					.done(function() {
+						// if still viewing the same directory
+						if (self.getCurrentDirectory() === dir) {
+							// recalculate folder size
+							var oldFile = self.findFileEl(target);
+							var newFile = self.findFileEl(fileName);
+							var oldSize = oldFile.data('size');
+							var newSize = oldSize + newFile.data('size');
+							oldFile.data('size', newSize);
+							oldFile.find('td.filesize').text(OC.Util.humanFileSize(newSize));
 
-									// TODO: also update entry in FileList.files
-
-									self.remove(fileName);
-								}
-							} else {
-								OC.Notification.hide();
-								if (result.status === 'error' && result.data.message) {
-									OC.Notification.show(result.data.message);
-								}
-								else {
-									OC.Notification.show(t('files', 'Error moving file.'));
-								}
-								// hide notification after 10 sec
-								setTimeout(function() {
-									OC.Notification.hide();
-								}, 10000);
-							}
-						} else {
-							OC.dialogs.alert(t('files', 'Error moving file'), t('files', 'Error'));
+							// TODO: also update entry in FileList.files
+							self.remove(fileName);
 						}
+					})
+					.fail(function(status) {
+						if (status === 412) {
+							// TODO: some day here we should invoke the conflict dialog
+							OC.Notification.showTemporary(
+								t('files', 'Could not move "{file}", target exists', {file: fileName})
+							);
+						} else {
+							OC.Notification.showTemporary(
+								t('files', 'Could not move "{file}"', {file: fileName})
+							);
+						}
+					})
+					.always(function() {
 						$thumbEl.css('background-image', oldBackgroundImage);
 					});
 			});
@@ -1438,16 +1429,16 @@
 		 * Triggers file rename input field for the given file name.
 		 * If the user enters a new name, the file will be renamed.
 		 *
-		 * @param oldname file name of the file to rename
+		 * @param oldName file name of the file to rename
 		 */
-		rename: function(oldname) {
+		rename: function(oldName) {
 			var self = this;
 			var tr, td, input, form;
-			tr = this.findFileEl(oldname);
+			tr = this.findFileEl(oldName);
 			var oldFileInfo = this.files[tr.index()];
 			tr.data('renaming',true);
 			td = tr.children('td.filename');
-			input = $('<input type="text" class="filename"/>').val(oldname);
+			input = $('<input type="text" class="filename"/>').val(oldName);
 			form = $('<form></form>');
 			form.append(input);
 			td.children('a.name').hide();
@@ -1462,11 +1453,11 @@
 			input.selectRange(0, len);
 			var checkInput = function () {
 				var filename = input.val();
-				if (filename !== oldname) {
+				if (filename !== oldName) {
 					// Files.isFileNameValid(filename) throws an exception itself
 					OCA.Files.Files.isFileNameValid(filename);
 					if (self.inList(filename)) {
-						throw t('files', '{new_name} already exists', {new_name: filename});
+						throw t('files', '{newName} already exists', {newName: filename});
 					}
 				}
 				return true;
@@ -1479,6 +1470,13 @@
 				td.children('a.name').show();
 			}
 
+			function updateInList(fileInfo) {
+				tr.remove();
+				tr = self.add(fileInfo, {updateSummary: false, silent: true});
+				self.$fileList.trigger($.Event('fileActionsReady', {fileList: self, $files: $(tr)}));
+			}
+
+			// TODO: too many nested blocks, move parts into functions
 			form.submit(function(event) {
 				event.stopPropagation();
 				event.preventDefault();
@@ -1492,7 +1490,7 @@
 					input.tipsy('hide');
 					form.remove();
 
-					if (newName !== oldname) {
+					if (newName !== oldName) {
 						checkInput();
 						// mark as loading (temp element)
 						$thumbEl.css('background-image', 'url('+ OC.imagePath('core', 'loading.gif') + ')');
@@ -1505,26 +1503,45 @@
 						td.children('a.name').show();
 						tr.find('.fileactions, .action').addClass('hidden');
 
-
-						var path = tr.attr('data-path') || self.getCurrentDirectory(); 
-						self.filesClient.move(path + '/' + oldname, path + '/' + newName)
-							.then(function(status) {
-								// TODO: result
-								var fileInfo;
-								if (status !== 201) {
-									OC.dialogs.alert(result.data.message, t('files', 'Could not rename file'));
-									fileInfo = oldFileInfo;
-									if (result.data.code === 'sourcenotfound') {
-										self.remove(result.data.newname, {updateSummary: true});
-										return;
-									}
-								}
-								// reinsert row
+						var path = tr.attr('data-path') || self.getCurrentDirectory();
+						self.filesClient.move(path + '/' + oldName, path + '/' + newName)
+							.done(function() {
 								var fileInfo = self.files.splice(tr.index(), 1)[0];
 								fileInfo.name = newName;
-								tr.remove();
-								tr = self.add(fileInfo, {updateSummary: false, silent: true});
-								self.$fileList.trigger($.Event('fileActionsReady', {fileList: self, $files: $(tr)}));
+								updateInList(fileInfo);
+							})
+							.fail(function(status) {
+								// TODO: 409 means current folder does not exist, redirect ?
+								if (status === 404) {
+									// source not found, so remove it from the list
+									OC.Notification.showTemporary(
+										t(
+											'files',
+											'Could not rename "{fileName}", it does not exist any more',
+											{fileName: oldName}
+										)
+									);
+									self.remove(newName, {updateSummary: true});
+									return;
+								} else if (status === 412) {
+									// target exists
+									OC.Notification.showTemporary(
+										t(
+											'files',
+											'The name "{targetName}" is already used in the folder "{dir}". Please choose a different name.',
+											{
+												targetName: newName,
+												dir: self.getCurrentDirectory()
+											}
+										)
+									);
+								} else {
+									// restore the item to its previous state
+									OC.Notification.showTemporary(
+										t('files', 'Could not rename "{fileName}"', {fileName: oldName})
+									);
+								}
+								updateInList(oldFileInfo);
 							});
 					} else {
 						// add back the old file info when cancelled
@@ -1565,9 +1582,111 @@
 				form.trigger('submit');
 			});
 		},
+
+		/**
+		 * Create an empty file inside the current directory.
+		 *
+		 * @param {string} name name of the file
+		 *
+		 * @return {Promise} promise that will be resolved after the
+		 * file was created
+		 */
+		createFile: function(name) {
+			var self = this;
+			var deferred = $.Deferred();
+			var promise = deferred.promise();
+
+			name = this.getUniqueName(name);
+			var targetPath = this.getCurrentDirectory() + '/' + name;
+
+			self.filesClient.putFileContents(targetPath, '')
+				.done(function() {
+					// TODO: error handling / conflicts
+					self.filesClient.getFileInfo(targetPath)
+						.then(function(status, data) {
+							self.add(data, {animate: true, scrollTo: true});
+							deferred.resolve(status, data);
+						})
+						.fail(function(status) {
+							OC.Notification.showTemporary(t('core', 'Could not create file "{file}"', {file: name}));
+							deferred.reject(status);
+						});
+				})
+				.fail(function(status) {
+					OC.Notification.showTemporary(t('core', 'Could not create file "{file}"', {file: name}));
+					deferred.reject(status);
+				});
+
+			return promise;
+		},
+
+		/**
+		 * Create a directory inside the current directory.
+		 *
+		 * @param {string} name name of the directory
+		 *
+		 * @return {Promise} promise that will be resolved after the
+		 * directory was created
+		 */
+		createDirectory: function(name) {
+			var self = this;
+			var deferred = $.Deferred();
+			var promise = deferred.promise();
+
+			name = this.getUniqueName(name);
+			var targetPath = this.getCurrentDirectory() + '/' + name;
+
+			this.filesClient.createDirectory(targetPath)
+				.done(function(createStatus) {
+					self.filesClient.getFileInfo(targetPath)
+						.done(function(status, data) {
+							self.add(data, {animate: true, scrollTo: true});
+							deferred.resolve(status, data);
+						})
+						.fail(function() {
+							OC.Notification.showTemporary(t('core', 'Could not create folder "{dir}"', {dir: name}));
+							deferred.reject(createStatus);
+						});
+				})
+				.fail(function(createStatus) {
+					// method not allowed, folder might exist already
+					if (createStatus === 405) {
+						self.filesClient.getFileInfo(targetPath)
+							.done(function(status, data) {
+								// add it to the list, for completeness
+								self.add(data, {animate: true, scrollTo: true});
+								OC.Notification.showTemporary(
+									t('core', 'Could not create folder "{dir}" because it already exists', {dir: name})
+								);
+								// still consider a failure
+								deferred.reject(createStatus, data);
+							})
+							.fail(function() {
+								OC.Notification.showTemporary(
+									t('core', 'Could not create folder "{dir}"', {dir: name})
+								);
+								deferred.reject(status);
+							});
+					} else {
+						OC.Notification.showTemporary(t('core', 'Could not create folder "{dir}"', {dir: name}));
+						deferred.reject(createStatus);
+					}
+				});
+
+			return promise;
+		},
+
+		/**
+		 * Returns whether the given file name exists in the list
+		 *
+		 * @param {string} file file name
+		 *
+		 * @return {bool} true if the file exists in the list, false otherwise
+		 */
 		inList:function(file) {
 			return this.findFileEl(file).length;
 		},
+
 		/**
 		 * Delete the given files from the given dir
 		 * @param files file names list (without path)
@@ -1597,46 +1716,38 @@
 				files = _.pluck(this.files, 'name');
 			}
 
+			function removeFromList(file) {
+				var fileEl = self.remove(file, {updateSummary: false});
+				// FIXME: not sure why we need this after the
+				// element isn't even in the DOM any more
+				fileEl.find('.selectCheckBox').prop('checked', false);
+				fileEl.removeClass('selected');
+				self.fileSummary.remove({type: fileEl.attr('data-type'), size: fileEl.attr('data-size')});
+				// TODO: this info should be returned by the ajax call!
+				self.updateEmptyContent();
+				self.fileSummary.update();
+				self.updateSelectionSummary();
+				// FIXME: don't repeat this, do it once all files are done
+				self.updateStorageStatistics();
+			}
+
 			_.each(files, function(file) {
-				// TODO: batch/chunk
 				self.filesClient.remove(dir + '/' + file)
-					.then(function(result) {
-						// TODO: result handling
-						result = {status: 'success'};
-						if (result.status === 'success') {
-							var fileEl = self.remove(file, {updateSummary: false});
-							// FIXME: not sure why we need this after the
-							// element isn't even in the DOM any more
-							fileEl.find('.selectCheckBox').prop('checked', false);
-							fileEl.removeClass('selected');
-							self.fileSummary.remove({type: fileEl.attr('data-type'), size: fileEl.attr('data-size')});
-							// TODO: this info should be returned by the ajax call!
-							self.updateEmptyContent();
-							self.fileSummary.update();
-							self.updateSelectionSummary();
-							self.updateStorageStatistics();
+					.done(function() {
+						removeFromList(file);
+					})
+					.fail(function(status) {
+						if (status === 404) {
+							// the file already did not exist, remove it from the list
+							removeFromList(file);
 						} else {
-							if (result.status === 'error' && result.data.message) {
-								OC.Notification.show(result.data.message);
-							}
-							else {
-								OC.Notification.show(t('files', 'Error deleting file.'));
-							}
-							// hide notification after 10 sec
-							setTimeout(function() {
-								OC.Notification.hide();
-							}, 10000);
-							if (params.allfiles) {
-								// reload the page as we don't know what files were deleted
-								// and which ones remain
-								self.reload();
-							}
-							else {
-								$.each(files,function(index,file) {
-									var deleteAction = self.findFileEl(file).find('.action.delete');
-									deleteAction.removeClass('icon-loading-small').addClass('icon-delete');
-								});
-							}
+							// only reset the spinner for that one file
+							OC.Notification.showTemporary(
+									t('files', 'Error deleting file "{fileName}".', {fileName: file}),
+									{timeout: 10}
+							);
+							var deleteAction = self.findFileEl(file).find('.action.delete');
+							deleteAction.removeClass('icon-loading-small').addClass('icon-delete');
 						}
 					});
 			});

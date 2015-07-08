@@ -646,31 +646,16 @@ OC.Upload = {
 				event.preventDefault();
 				try {
 					checkInput();
-					var filesClient = FileList.filesClient;
 					var newname = input.val();
 					if (FileList.lastAction) {
 						FileList.lastAction();
 					}
-					var name = FileList.getUniqueName(newname);
-					var targetPath = FileList.getCurrentDirectory() + '/' + name;
 					switch(type) {
 						case 'file':
-							// TODO: error handling
-							filesClient.putFileContents(targetPath, '')
-								.then(function() {
-									filesClient.getFileInfo(targetPath).then(function(data) {
-										FileList.add(data, {animate: true, scrollTo: true});
-									});
-								});
+							FileList.createFile(newname);
 							break;
 						case 'folder':
-							// TODO: error handling
-							filesClient.createDirectory(targetPath)
-								.then(function() {
-									filesClient.getFileInfo(targetPath).then(function(data) {
-										FileList.add(data, {animate: true, scrollTo: true});
-									});
-								});
+							FileList.createDirectory(newname);
 							break;
 					}
 					var li = form.parent();
