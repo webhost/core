@@ -19,12 +19,13 @@
 		this.etag = data.etag;
 		this.permissions = data.permissions;
 		this.size = data.size;
-		this.mimetype = data.mimetype;
+		this.mimeType = data.mimeType;
+		this.mountType = data.mountType;
 		this._props = data._props;
 
-		// TODO: isSharedMount and other props
-
-		if (this.mimetype === 'httpd/unix-directory') {
+		if (data.type) {
+			this.type = data.type;
+		} else if (this.mimeType === 'httpd/unix-directory') {
 			this.type = 'dir';
 		} else {
 			this.type = 'file';
@@ -92,11 +93,13 @@
 		etag: null,
 
 		/**
-		 * Whether the file is a share mount point
+		 * Mount type.
 		 *
-		 * @type boolean
+		 * One of null, "external-root", "shared" or "shared-root"
+		 *
+		 * @type string
 		 */
-		isShareMountPoint: false,
+		mountType: null,
 
 		/**
 		 * Whether previews are supported for this file's mime type

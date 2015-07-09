@@ -186,15 +186,15 @@
 			
 			var contentType = response.getProperty(Client.NS_DAV, 'getcontenttype');
 			if (contentType && contentType.status === 200) {
-				data.mimetype = contentType.getParsedValue();
+				data.mimeType = contentType.getParsedValue();
 			}
 
 			var resType = response.getProperty(Client.NS_DAV, 'resourcetype');
 			var isFile = true;
-			if (!data.mimetype && resType && resType.status === 200 && resType.xmlvalue) {
+			if (!data.mimeType && resType && resType.status === 200 && resType.xmlvalue) {
 				var xmlvalue = resType.xmlvalue[0];
 				if (xmlvalue.namespaceURI === Client.NS_DAV && xmlvalue.localName === 'collection') {
-					data.mimetype = 'httpd/unix-directory';
+					data.mimeType = 'httpd/unix-directory';
 					isFile = false;
 				}
 			}
@@ -228,10 +228,14 @@
 							data.permissions |= OC.PERMISSION_SHARE;
 							break;
 						case 'M':
-							data.isMount = true;
+							if (!data.mountType) {
+								// TODO: how to identify external-root ?
+								data.mountType = 'external';
+							}
 							break;
 						case 'S':
-							data.isShared = true;
+							// TODO: how to identify shared-root ?
+							data.mountType = 'shared';
 							break;
 					}
 				}
@@ -255,10 +259,22 @@
 			return result;
 		},
 
+		/**
+		 * Returns whether the given status code means success
+		 *
+		 * @param {int} status status code
+		 *
+		 * @return true if status code is between 200 and 299 included
+		 */
 		_isSuccessStatus: function(status) {
 			return status >= 200 && status <= 299;
 		},
 
+		/**
+		 * Returns the default PROPFIND properties to use during a call.
+		 *
+		 * @return {Array.<Object>} array of properties
+		 */
 		_getPropfindProperties: function() {
 			if (!this._propfindProperties) {
 				this._propfindProperties = _.map(Client._PROPFIND_PROPERTIES, function(propDef) {

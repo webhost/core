@@ -209,6 +209,8 @@
 			this.files = [];
 			this._selectedFiles = {};
 			this._selectionSummary = new OCA.Files.FileSummary();
+			// dummy root dir info
+			this.dirInfo = new OC.Files.FileInfo({path: '/'});
 
 			this.fileSummary = this._createSummary();
 
@@ -683,6 +685,27 @@
 				self.$el.closest('#app-content').trigger(jQuery.Event('apprendered'));
 			});
 		},
+
+		/**
+		 * Returns the icon URL matching the given file info
+		 *
+		 * @param {OC.Files.FileInfo} fileInfo file info
+		 *
+		 * @return {string} icon URL
+		 */
+		_getIconUrl: function(fileInfo) {
+			if (fileInfo.mimeType === 'httpd/unix-directory') {
+				// use default folder icon
+				if (fileInfo.mountType === 'shared' || fileInfo.mountType === 'shared-root') {
+					return OC.MimeType.getIconUrl('dir-shared');
+				} else if (fileInfo.mountType === 'external-root') {
+					return OC.MimeType.getIconUrl('dir-external');
+				}
+				return OC.MimeType.getIconUrl('dir');
+			}
+			return OC.MimeType.getIconUrl(fileInfo.mimeType);
+		},
+
 		/**
 		 * Creates a new table row element using the given file data.
 		 * @param {OC.Files.FileInfo} fileData file info attributes
@@ -695,7 +718,7 @@
 				name = fileData.name,
 				type = fileData.type || 'file',
 				mtime = parseInt(fileData.mtime, 10),
-				mime = fileData.mimetype,
+				mime = fileData.mimeType || fileData.mimetype,
 				path = fileData.path,
 				linkUrl;
 			options = options || {};
@@ -721,6 +744,14 @@
 			});
 
 			if (fileData.mountType) {
+				// FIXME: HACK: detect shared-root
+				if (fileData.mountType === 'shared' && this.dirInfo.mountType !== 'shared') {
+					// if parent folder isn't share, assume the displayed folder is a share root
+					fileData.mountType = 'shared-root';
+				} else if (fileData.mountType === 'external' && this.dirInfo.mountType !== 'external') {
+					// if parent folder isn't external, assume the displayed folder is the external storage root
+					fileData.mountType = 'external-root';
+				}
 				tr.attr('data-mounttype', fileData.mountType);
 			}
 
@@ -731,12 +762,8 @@
 				path = this.getCurrentDirectory();
 			}
 
-			if (type === 'dir') {
-				// use default folder icon
-				icon = icon || OC.imagePath('core', 'filetypes/folder');
-			}
-			else {
-				icon = icon || OC.imagePath('core', 'filetypes/file');
+			if (!icon) {
+				icon = this._getIconUrl(fileData);
 			}
 
 			// filename td
@@ -934,7 +961,7 @@
 		_renderRow: function(fileData, options) {
 			options = options || {};
 			var type = fileData.type || 'file',
-				mime = fileData.mimetype,
+				mime = fileData.mimeType || fileData.mimetype,
 				path = fileData.path || this.getCurrentDirectory(),
 				permissions = parseInt(fileData.permissions, 10) || 0;
 

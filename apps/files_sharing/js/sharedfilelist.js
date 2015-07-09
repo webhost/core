@@ -174,14 +174,15 @@
 			files = _.chain(files)
 				// convert share data to file data
 				.map(function(share) {
+					// TODO: use OC.Files.FileInfo
 					var file = {
 						id: share.file_source,
 						icon: OC.MimeType.getIconUrl(share.mimetype),
-						mimetype: share.mimetype
+						mimeType: share.mimetype
 					};
 					if (share.item_type === 'folder') {
 						file.type = 'dir';
-						file.mimetype = 'httpd/unix-directory';
+						file.mimeType = 'httpd/unix-directory';
 					}
 					else {
 						file.type = 'file';
